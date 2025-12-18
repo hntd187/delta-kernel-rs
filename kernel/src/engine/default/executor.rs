@@ -41,11 +41,52 @@ pub trait TaskExecutor: Send + Sync + 'static {
         R: Send + 'static;
 }
 
+pub mod compio {
+    use super::TaskExecutor;
+    use crate::DeltaResult;
+    use futures::future::BoxFuture;
+    use futures::{FutureExt, TryFutureExt};
+    use std::future::Future;
+
+
+    pub struct CompioExecutor {}
+
+    impl TaskExecutor for CompioExecutor {
+        fn block_on<T>(&self, task: T) -> T::Output
+        where
+            T: Future + Send + 'static,
+            T::Output: Send + 'static,
+        {
+            compio::runtime::Runtime::with_current(|rt| rt.block_on(task))
+        }
+
+        fn spawn<F>(&self, task: F)
+        where
+            F: Future<Output = ()> + Send + 'static,
+        {
+            compio::runtime::spawn_blocking(task).detach();
+            // compio::runtime::Runtime::with_current(|rt| rt.spawn(task).detach())
+        }
+
+        fn spawn_blocking<T, R>(&self, task: T) -> BoxFuture<'_, DeltaResult<R>>
+        where
+            T: FnOnce() -> R + Send + 'static,
+            R: Send + 'static,
+        {
+            compio::runtime::Runtime::with_current(|rt| {
+                rt.spawn_blocking(task)
+                    .map_err(|_| crate::Error::join_failure("Join Failure"))
+            })
+            .boxed()
+        }
+    }
+}
+
 #[cfg(any(feature = "tokio", test))]
 pub mod tokio {
     use super::TaskExecutor;
-    use futures::TryFutureExt;
     use futures::{future::BoxFuture, Future};
+    use futures::{FutureExt, TryFutureExt};
     use std::sync::mpsc::channel;
     use tokio::runtime::RuntimeFlavor;
 

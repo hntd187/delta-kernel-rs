@@ -16,9 +16,12 @@ use delta_kernel::{DeltaResult, Error, ExpressionRef, Snapshot};
 
 use std::collections::HashMap;
 use std::process::ExitCode;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use clap::{Parser, Subcommand};
+use delta_kernel::engine::default::DefaultEngine;
+use delta_kernel::engine::default::executor::compio;
+use delta_kernel::engine::default::storage::store_from_url_opts;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -49,7 +52,8 @@ enum Commands {
     },
 }
 
-fn main() -> ExitCode {
+#[::compio::main]
+async fn main() -> ExitCode {
     env_logger::init();
     match try_main() {
         Ok(()) => ExitCode::SUCCESS,
@@ -183,7 +187,10 @@ fn try_main() -> DeltaResult<()> {
     let cli = Cli::parse_with_examples(env!("CARGO_PKG_NAME"), "Inspect", "inspect", "<COMMAND>");
 
     let url = delta_kernel::try_parse_uri(&cli.location_args.path)?;
-    let engine = common::get_engine(&url, &cli.location_args)?;
+    // let engine = common::get_engine(&url, &cli.location_args)?;
+    let obj_stor = store_from_url_opts(&url, HashMap::new())?;
+    let executor = Arc::new(compio::CompioExecutor{});
+    let engine = DefaultEngine::new_with_executor(obj_stor, executor);
     let snapshot = Snapshot::builder_for(url).build(&engine)?;
 
     match cli.command {

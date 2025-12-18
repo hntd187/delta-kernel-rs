@@ -233,13 +233,13 @@ mod tests {
         let props = WriterProperties::builder().build();
 
         let full_path = format!("{delta_path}{file_path}");
-        let file = std::fs::File::create(&full_path).unwrap();
+        let file = std::fs::File::create(&full_path)?;
         let mut writer = ArrowWriter::try_new(file, batch.schema(), Some(props)).unwrap();
 
         writer.write(batch).expect("Writing batch");
 
         // writer must be closed to write footer
-        let res = writer.close().unwrap();
+        let res = writer.close()?;
 
         create_file_metadata(file_path, res.file_metadata().num_rows(), metadata_schema)
     }

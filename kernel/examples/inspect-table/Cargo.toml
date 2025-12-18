@@ -13,6 +13,7 @@ delta_kernel = { path = "../../../kernel", features = [
   "internal-api",
 ] }
 env_logger = "0.11.8"
+compio = { version = "0.17", features = ["all"] }
 
 # for cargo-release
 [package.metadata.release]
